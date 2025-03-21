@@ -1,12 +1,19 @@
 <template>
   <section>
-    <input type="text" v-model="name" placeholder="enter your name" />
-    <button @click="createRoom">Create Room</button>
+    <div class="sec">
+      <input type="text" v-model="roomName" placeholder="enter room name" />
+      <button @click="createRoom">Create Room</button>
+    </div>
     <p>or</p>
-    <input type="text" v-model="roomCode" placeholder="enter room id" />
-    <button @click="joinRoom">Join room</button>
-    <button @click="router.push('/rooms')">browse rooms</button>
-    {{ pressed }}
+    <div class="lower-section">
+      <div class="sec">
+        <input type="text" v-model="roomCode" placeholder="enter room id" />
+        <button @click="joinRoom">Join room</button>
+
+      </div>
+      <button @click="router.push('/rooms')">browse rooms</button>
+    </div>
+    <!-- {{ pressed }} -->
 
   </section>
 </template>
@@ -17,7 +24,7 @@ import { useRouter } from "vue-router";
 import {useCounterStore} from "../stores/counter"
 
 const store = useCounterStore()
-const name = ref("");
+const roomName = ref("");
 
 const leftKeyboard = new Set(['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b'])
 const rightKeyboard = new Set(['y', 'u', 'i', 'o', 'p', 'h', 'j', 'k', 'l', 'n', 'm'])
@@ -30,35 +37,39 @@ const roomCode = ref(0)
 const pressed = ref(new Set())
 
 async function createRoom() {
-  store.name = name.value
-  const player = {
+  const room = {
     id: 0,
-    name: name.value,
-    wordIndex: 0,
-  };
-  console.log(JSON.stringify(player));
-  await fetch(`${http}/room-create`, {
+    name: roomName.value,
+    players:[ {
+      name: store.name
+    }],
+    maxPlayers: 2
+}
+  await fetch(`${http}/rooms`, {
     method: "POST",
-    body: JSON.stringify(player),
+    body: JSON.stringify(room),
     headers: {
       "Content-Type": "application/json",
     },
   })
-    .then((res) => res.json())
+    .then((res) => {
+      console.log("dlw;adl;wa;l",res)
+      return res.json()
+    })
     .then((data) => {
       store.room = data
-      router.push({ path: `room/${data.id}`, params:{test:"huesos"} });
+      joinRoom(data.id)
     });
 }
 
-function joinRoom() {
-  store.name = name.value
+async function joinRoom(roomId) {
   const player = {
-    name: name.value,
-    wordIndex: 0,
-    id: 0,
+    roomId:roomId,
+    player: {
+      name: store.name,
+    }
   };
-  fetch(`${http}/join-room/${roomCode.value}`, {
+  await fetch(`${http}/rooms/join`, {
     method: "POST",
     body: JSON.stringify(player),
     headers: {
@@ -72,7 +83,7 @@ function joinRoom() {
       // room.value = data;
       // roomId = data.id;
       // joinWs();
-      router.push({path:`room/${roomCode.value}`})
+      router.push({path:`room/${roomCode.value || roomId}`})
     });
 }
 document.addEventListener('keydown', (event) => {
@@ -144,5 +155,23 @@ section{
   /* transform: translate(-50%,-50%); */
   width: 800px;
   height: 450px;
+}
+
+.lower-section{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sec{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sec > input {
+  height: 13px;
+
 }
 </style>

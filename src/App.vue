@@ -96,7 +96,7 @@ function joinRoom() {
     console.log(data);
     room.value = data;
     roomId = data.id;
-    joinWs();
+    // joinWs();
   });
   id += 1;
 }
@@ -124,7 +124,6 @@ function handleKey(e){
     letterIndex = 0
     console.log(request)
     // request.players[name.value].wordIndex += 1
-    roomSocket.publish({ destination: `/app/rooms/${roomId}`, body: JSON.stringify(request) });
     setTimeout(() => inputVal.value = "",0)
     inputVal.value = ""
     return

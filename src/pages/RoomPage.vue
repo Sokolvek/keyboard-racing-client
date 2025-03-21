@@ -1,23 +1,24 @@
 <template>
   <div>
-    <button @click="startGame">startGame</button>
+    <!-- <button @click="startGame">startGame</button> -->
     <div class="sentence" ref="sentence">
       <div v-for="(word, i) in sen.split(' ')" :key="i">
         <div :class="{ 'current-word': i == wordIndex }">{{ word }}</div>
       </div>
     </div>
     
-    <input :disabled="!store.room.gameStarted" v-model="inputVal" @keydown="handleKey" type="text" />
+    <input v-model="inputVal" @keydown="handleKey" type="text" />
     <p>Errors: {{ sentenceErrors }}</p>
-    <p>Players:</p>
-    <ul v-if="store.room && store.room" class="room">
-      <p>game status: {{ store.room.gameStarted }}</p>
-      <li v-for="player in store.room.players" :key="player.id">
-        <p>{{ player.name }}</p>
-        <p>{{ player.wordIndex }}</p>
+    <ul v-if="room" class="player-list">
+      <h2>Players list:</h2>
+      <!-- <p>game status: {{ store.room.gameStarted }}</p> -->
+      <li v-for="player in room.players" :key="player.id" class="player-item">
+        <p v-if="player.name == store.name">Name: {{ player.name }} (you)</p>
+        <p v-else>Name: {{ player.name }}</p>
+        <p>Points: {{ player.gamePoints }}</p>
       </li>
     </ul>
-    <Cat />
+    <!-- <Cat /> -->
   </div>
 </template>
 
@@ -40,37 +41,29 @@ const wordIndex = ref(0);
 const sentenceErrors = ref(0);
 const room = ref({ players: [] });
 let notErrorKeys = new Set(["Alt", "Shift", "Control", "CapsLock", "Tab", "Backspace"]);
-let roomSocket;
+let roomConn
 let letterIndex = 0;
 
 function joinWs() {
-  console.log(roomId);
-  roomSocket = new Client({
-    brokerURL: `${ws}/rooms`,
-    onConnect: () => {
-      console.log(`Subscribed to /topic/room/${roomId}`);
-      roomSocket.subscribe(`/topic/room/${roomId}`, (message) => {
-        console.log(`Received message: ${message.body}`);
-        store.room = JSON.parse(message.body);
-      });
-      let req = {
-        action:"GET",
-        room:store.room
-      }
-      // Request initial state of the room
-      roomSocket.publish({
-        destination: `/app/room/${roomId}`,
-        body: JSON.stringify(req),
-      });
-
-      console.log("Connected to WebSocket");
-    },
-    onStompError: (frame) => {
-      console.error(`Broker reported error: ${frame.headers["message"]}`);
-      console.error(`Additional details: ${frame.body}`);
-    },
-  });
-  roomSocket.activate();
+  console.log(roomId, `${ws}/rooms/${roomId}`);
+  roomConn = new WebSocket(`${ws}/rooms/${roomId}`)
+  roomConn.onmessage = ((ev) => {
+    console.log("got msg", JSON.parse(ev.data))
+    room.value = JSON.parse(ev.data)
+  })
+  
+  let req = {
+    type:"get",
+    body:{
+      id:parseInt(roomId),
+      players: []
+    }
+  }
+  console.log(roomConn, req)
+  setTimeout(() => {
+    roomConn.send(JSON.stringify(req))
+    console.log("sent", req, JSON.stringify(req))
+  },300)
 }
 
 function findPlayer(players) {
@@ -79,32 +72,34 @@ function findPlayer(players) {
 
 function startGame(){
   let req = {
-    action:"START",
-    room:{
+    type:"update",
+    body:{
       id: roomId,
-      players: store.room.players,
-      limit: 4,
-      gameStarted: false
+      players: room.value.players,
     }
   }
-  roomSocket.publish({destination:`/app/rooms/${roomId}`, body: JSON.stringify(req)})
+  roomConn.send(req)
 }
 
 function handleKey(e){
     if(e.key == " " && inputVal.value == sen.value.split(" ")[wordIndex.value]){
-      let plrId = findPlayer(store.room.players)
+      let plrId = findPlayer(room.value.players)
       console.log(plrId)
-      store.room.players[plrId].wordIndex += 1
+      room.value.players[plrId].gamePoints += 1
       console.log(plrId, room.value.players)
       wordIndex.value += 1
       let request = {
-        id: roomId,
-        players: store.room.players
+        type:"update",
+        body:{
+        id: parseInt(roomId),
+        players: room.value.players
+      }
       };
       letterIndex = 0
       console.log(request)
       // request.players[name.value].wordIndex += 1
-      roomSocket.publish({ destination: `/app/rooms/${roomId}`, body: JSON.stringify(request) });
+      console.log(JSON.stringify(request))
+      roomConn.send(JSON.stringify(request) );
       setTimeout(() => inputVal.value = "",0)
       inputVal.value = ""
       return
@@ -120,8 +115,7 @@ function handleKey(e){
 
 
 onMounted(() => {
-  console.log(route.params)
-  joinWs();
+  joinWs()
 });
 </script>
 
@@ -129,5 +123,33 @@ onMounted(() => {
 .current-word {
   font-weight: bold;
   color: green;
+}
+
+.sentence {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-list{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  gap: 10px;
+}
+
+.player-item{
+  display: flex;
+  flex-direction: column;
+  background-color: rgb(19, 18, 18);
+  width: 250px;
+  padding: 5px;
+  border-radius: 8px;
+}
+
+.player-item > p {
+  margin: 0;
 }
 </style>
