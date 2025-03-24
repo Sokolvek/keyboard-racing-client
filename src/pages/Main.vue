@@ -43,6 +43,7 @@ async function createRoom() {
     players:[ {
       name: store.name
     }],
+    owner: {name:store.name},
     maxPlayers: 2
 }
   await fetch(`${http}/rooms`, {
